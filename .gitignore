@@ -1,0 +1,4 @@
+*/docs/*
+.git
+serotonin/scripts/*
+!serotonin/scripts/mm2.lua
