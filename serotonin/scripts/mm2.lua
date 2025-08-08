@@ -1,5 +1,15 @@
 local players = {}
 local roleCache = {}
+local cfg = {
+    color_innocent = Color3.new(0,1,0),
+    color_sheriff = Color3.new(0,0,1),
+    color_murderer = Color3.new(1,0,0),
+    enable_boxes = false,
+    box_filled = false,
+    show_weapon = false,
+    box_thickness = 2.0,
+    max_distance = 1000.0,
+}
 
 local Players = game.GetService("Players")
 local Workspace = game.Workspace
@@ -56,7 +66,8 @@ local function getPlayers()
     players = {}
     local lp = entity.GetLocalPlayer()
     local entity_list = entity.GetPlayers()
-    local maxDistance = ui.getValue("mm2", "mm2_esp", "Max Distance") or 1000 -- quick win #1
+
+    local maxDistance = cfg.max_distance
 
     local lookup = {}
     for _, ent in ipairs(entity_list) do
@@ -83,18 +94,19 @@ local function toColor3(c)
     return Color3.new((c.r or 0)/255, (c.g or 0)/255, (c.b or 0)/255)
 end
 
+local function updateConfig()
+    cfg.color_innocent = toColor3(ui.getValue("mm2", "mm2_esp", "Innocent Color"))
+    cfg.color_sheriff  = toColor3(ui.getValue("mm2", "mm2_esp", "Sheriff Color"))
+    cfg.color_murderer = toColor3(ui.getValue("mm2", "mm2_esp", "Murderer Color"))
+    cfg.enable_boxes   = ui.getValue("mm2", "mm2_esp", "Enable Boxes") or false
+    cfg.box_filled     = ui.getValue("mm2", "mm2_esp", "Box Filled") or false
+    cfg.show_weapon    = ui.getValue("mm2", "mm2_esp", "Show Weapon") or false
+    cfg.box_thickness  = ui.getValue("mm2", "mm2_esp", "Box Thickness") or 2.0
+    cfg.max_distance   = ui.getValue("mm2", "mm2_esp", "Max Distance") or 1000.0
+end
+
 local function paintPlayers()
     if not isMM2 then return end
-
-    local cfg = {
-        color_innocent = toColor3(ui.getValue("mm2", "mm2_esp", "Innocent Color")),
-        color_sheriff = toColor3(ui.getValue("mm2", "mm2_esp", "Sheriff Color")),
-        color_murderer = toColor3(ui.getValue("mm2", "mm2_esp", "Murderer Color")),
-        enable_boxes = ui.getValue("mm2", "mm2_esp", "Enable Boxes"),
-        box_filled = ui.getValue("mm2", "mm2_esp", "Box Filled"),
-        show_weapon = ui.getValue("mm2", "mm2_esp", "Show Weapon"),
-        box_thickness = ui.getValue("mm2", "mm2_esp", "Box Thickness") or 2.0,
-    }
 
     for _, playerData in ipairs(players) do
         local player, ent = playerData.player, playerData.entity
@@ -145,6 +157,9 @@ local function updateMisc()
     Players = game.GetService("Players")
 end
 
-cheat.Register("onUpdate", getPlayers)
+cheat.Register("onUpdate", function()
+    updateConfig()
+    getPlayers()
+end)
 cheat.Register("onSlowUpdate", updateMisc)
 cheat.Register("onPaint", paintPlayers)
