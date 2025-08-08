@@ -10,7 +10,7 @@ local cfg = {
     box_thickness = 2.0,
     max_distance = 1000.0,
 }
-
+#
 local Players = game.GetService("Players")
 local Workspace = game.Workspace
 
