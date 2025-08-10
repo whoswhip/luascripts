@@ -217,8 +217,8 @@ local function paintPlayers()
                     if #screen_points >= 3 then
                         local hull = draw.ComputeConvexHull(screen_points)
                         if hull and #hull >= 2 then
-                            draw.Polyline(hull, Color3.new(1, 1, 1), true, 1.0, 255)
-                            draw.ConvexPolyFilled(hull, Color3.new(0, 1, 0), 32)
+                            draw.Polyline(hull, Color3.new(0, 0, 1), true, 1.0, 255)
+                            draw.ConvexPolyFilled(hull, Color3.new(0, 0, 0.9), 32)
                         end
 
                         for _, p in ipairs(hull) do
