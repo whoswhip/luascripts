@@ -1,5 +1,6 @@
 local players = {}
 local roleCache = {}
+local gunCache = {}
 local cfg = {
     color_innocent = Color3.new(0,1,0),
     color_sheriff = Color3.new(0,0,1),
@@ -7,10 +8,10 @@ local cfg = {
     enable_boxes = false,
     box_filled = false,
     show_weapon = false,
-    box_thickness = 2.0,
+    enable_gun_esp = false,
     max_distance = 1000.0,
 }
-#
+
 local Players = game.GetService("Players")
 local Workspace = game.Workspace
 
@@ -18,6 +19,19 @@ local MM2_PLACE_IDS = {
     [142823291] = true,
     [136333311210714] = true,
     [134955552969606] = true,
+}
+
+local MM2_MAPS = {
+  Bank2 = true, BioLab = true, Factory = true, Hospital3 = true, Hotel2 = true,
+  House2 = true, Mansion2 = true, MilBase = true, Office3 = true, PoliceStation = true,
+  ResearchFacility = true, Workplace = true, BeachResort = true, Yacht = true,
+  Manor = true, Farmhouse = true, Mineshaft = true, BarnInfection = true,
+  VampiresCastle = true, Workshop = true, LogCabin = true, TrainStation = true,
+  Bank = true, Barn = true, Hospital = true, Hospital2 = true, Hotel = true,
+  House = true, Lab2 = true, Mansion = true, MilBaseOriginal = true, nStudio = true,
+  Office2 = true, Pond = true, BeachHouse = true, Casino = true, Coliseum = true,
+  DodgeballArena = true, NightClub = true, Zoo = true, Dungeon = true, PirateShip = true,
+  WildWest = true, School = true, Office = true, Castle = true, Junkyard = true
 }
 
 local function inMM2()
@@ -31,8 +45,8 @@ ui.newContainer("mm2", "mm2_esp", "ESP")
 ui.newCheckbox("mm2", "mm2_esp", "Enable Boxes")
 ui.newCheckbox("mm2", "mm2_esp", "Box Filled")
 ui.newCheckbox("mm2", "mm2_esp", "Show Weapon")
-ui.newSliderFloat("mm2", "mm2_esp", "Max Distance", 100.0, 5000.0, 1000.0)
-ui.newSliderFloat("mm2", "mm2_esp", "Box Thickness", 1.0, 5.0, 2.0)
+ui.newCheckbox("mm2", "mm2_esp", "Enable Gun ESP")
+ui.newSliderFloat("mm2", "mm2_esp", "Max Distance", 100.0, 10000.0, 1000.0)
 ui.newColorpicker("mm2", "mm2_esp", "Innocent Color", {r=0, g=255, b=0, a=255})
 ui.newColorpicker("mm2", "mm2_esp", "Sheriff Color", {r=0, g=0, b=255, a=255})
 ui.newColorpicker("mm2", "mm2_esp", "Murderer Color", {r=255, g=0, b=0, a=255})
@@ -59,6 +73,27 @@ local function getRole(player)
         end
     end
     return "Innocent", false
+end
+
+local function getGun()
+    gunCache = nil
+    local children = Workspace:GetChildren()
+    if children then
+        local map = nil
+        for _, child in ipairs(children) do
+            if MM2_MAPS[child.Name] then
+                map = child
+                break
+            end
+        end
+        if map then
+            for _, part in ipairs(map:GetChildren()) do
+                if part:IsA("Part") and part.Name == "GunDrop" then
+                    gunCache = part
+                end
+            end
+        end
+    end
 end
 
 local function getPlayers()
@@ -94,6 +129,12 @@ local function toColor3(c)
     return Color3.new((c.r or 0)/255, (c.g or 0)/255, (c.b or 0)/255)
 end
 
+local function RectOutlined(x, y, width, height, color, outlineColor, thickness)
+    draw.Rect(x, y, width, height, color, thickness)
+    draw.Rect(x + 1, y + 1, width - 2, height - 2, outlineColor, thickness)
+    draw.Rect(x - 1, y - 1, width + 2, height + 2, outlineColor, thickness)
+end
+
 local function updateConfig()
     cfg.color_innocent = toColor3(ui.getValue("mm2", "mm2_esp", "Innocent Color"))
     cfg.color_sheriff  = toColor3(ui.getValue("mm2", "mm2_esp", "Sheriff Color"))
@@ -101,8 +142,8 @@ local function updateConfig()
     cfg.enable_boxes   = ui.getValue("mm2", "mm2_esp", "Enable Boxes") or false
     cfg.box_filled     = ui.getValue("mm2", "mm2_esp", "Box Filled") or false
     cfg.show_weapon    = ui.getValue("mm2", "mm2_esp", "Show Weapon") or false
-    cfg.box_thickness  = ui.getValue("mm2", "mm2_esp", "Box Thickness") or 2.0
     cfg.max_distance   = ui.getValue("mm2", "mm2_esp", "Max Distance") or 1000.0
+    cfg.enable_gun_esp = ui.getValue("mm2", "mm2_esp", "Enable Gun ESP") or false
 end
 
 local function paintPlayers()
@@ -124,16 +165,14 @@ local function paintPlayers()
             or cfg.color_innocent
 
         if cfg.enable_boxes then
-            draw.Rect(boundingBox.x, boundingBox.y, boundingBox.w, boundingBox.h, rectColor, cfg.box_thickness)
             local function clamp(v) if v < 0 then return 0 elseif v > 1 then return 1 end return v end
-            local OUTLINE_DELTA = 0.5
+            local OUTLINE_DELTA = 0.6
             local outlineColor = Color3.new(
                 clamp(rectColor.r - OUTLINE_DELTA),
                 clamp(rectColor.g - OUTLINE_DELTA),
                 clamp(rectColor.b - OUTLINE_DELTA)
             )
-            draw.Rect(boundingBox.x - 1, boundingBox.y - 1, boundingBox.w + 2, boundingBox.h + 2, outlineColor, 1)
-            draw.Rect(boundingBox.x + 1, boundingBox.y + 1, boundingBox.w - 2, boundingBox.h - 2, outlineColor, 1)
+            RectOutlined(boundingBox.x, boundingBox.y, boundingBox.w, boundingBox.h, rectColor, outlineColor, 1)
         end
 
         if cfg.box_filled then
@@ -145,6 +184,39 @@ local function paintPlayers()
             local weapon = (role == "Murderer") and "Knife" or "Gun"
             draw.TextOutlined(weapon, boundingBox.x + boundingBox.w + 4, boundingBox.y + 8, Color3.new(1, 1, 1), "SmallestPixel")
         end
+
+        if cfg.enable_gun_esp and gunCache then
+            local gx, gy, onscreen = utility.WorldToScreen(gunCache.Position)
+            if gx and gy and onscreen then
+                local corners_3d = draw.GetPartCorners(gunCache)
+                local topx, topy = nil, nil
+                if corners_3d then
+                    local screen_points = {}
+                    for _, world_pos in ipairs(corners_3d) do
+                        local sx, sy, vis = utility.WorldToScreen(world_pos)
+                        if vis then
+                            table.insert(screen_points, { sx, sy })
+                        end
+                    end
+
+                    if #screen_points >= 3 then
+                        local hull = draw.ComputeConvexHull(screen_points)
+                        if hull and #hull >= 2 then
+                            draw.Polyline(hull, Color3.new(1, 1, 1), true, 1.0, 255)
+                            draw.ConvexPolyFilled(hull, Color3.new(0, 1, 0), 32)
+                        end
+
+                        for _, p in ipairs(hull) do
+                            if not topx or p[2] < topy then
+                                topx, topy = p[1], p[2]
+                            end
+                        end
+                    end
+                end
+                draw.TextOutlined("Dropped Gun", topx, topy - 8, Color3.new(1, 1, 1), "SmallestPixel")
+            end
+        end
+
 
         ::continue::
     end
@@ -160,6 +232,7 @@ end
 cheat.Register("onUpdate", function()
     updateConfig()
     getPlayers()
+    getGun()
 end)
 cheat.Register("onSlowUpdate", updateMisc)
 cheat.Register("onPaint", paintPlayers)
