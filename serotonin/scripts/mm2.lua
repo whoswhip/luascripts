@@ -43,9 +43,9 @@ local isMM2 = inMM2()
 ui.newTab("mm2", "MM2")
 ui.newContainer("mm2", "mm2_esp", "ESP")
 ui.newCheckbox("mm2", "mm2_esp", "Enable Boxes")
-ui.newCheckbox("mm2", "mm2_esp", "Box Filled")
-ui.newCheckbox("mm2", "mm2_esp", "Show Weapon")
-ui.newCheckbox("mm2", "mm2_esp", "Enable Gun ESP")
+ui.newCheckbox("mm2", "mm2_esp", "Filled Boxes")
+ui.newCheckbox("mm2", "mm2_esp", "Show Held Weapon")
+ui.newCheckbox("mm2", "mm2_esp", "Enable Dropped Gun ESP")
 ui.newSliderFloat("mm2", "mm2_esp", "Max Distance", 100.0, 10000.0, 1000.0)
 ui.newColorpicker("mm2", "mm2_esp", "Innocent Color", {r=0, g=255, b=0, a=255})
 ui.newColorpicker("mm2", "mm2_esp", "Sheriff Color", {r=0, g=0, b=255, a=255})
@@ -153,10 +153,10 @@ local function updateConfig()
     cfg.color_sheriff  = toColor3(ui.getValue("mm2", "mm2_esp", "Sheriff Color"))
     cfg.color_murderer = toColor3(ui.getValue("mm2", "mm2_esp", "Murderer Color"))
     cfg.enable_boxes   = ui.getValue("mm2", "mm2_esp", "Enable Boxes") or false
-    cfg.box_filled     = ui.getValue("mm2", "mm2_esp", "Box Filled") or false
-    cfg.show_weapon    = ui.getValue("mm2", "mm2_esp", "Show Weapon") or false
+    cfg.box_filled     = ui.getValue("mm2", "mm2_esp", "Filled Boxes") or false
+    cfg.show_weapon    = ui.getValue("mm2", "mm2_esp", "Show Held Weapon") or false
     cfg.max_distance   = ui.getValue("mm2", "mm2_esp", "Max Distance") or 1000.0
-    cfg.enable_gun_esp = ui.getValue("mm2", "mm2_esp", "Enable Gun ESP") or false
+    cfg.enable_gun_esp = ui.getValue("mm2", "mm2_esp", "Enable Dropped Gun ESP") or false
 end
 
 local function paint()
