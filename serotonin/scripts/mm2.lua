@@ -94,6 +94,19 @@ local function getGun()
             end
         end
     end
+    if not gunCache then
+        for _, model in ipairs(Workspace:GetChildren()) do
+            if model:IsA("Model") then
+                for _, part in ipairs(model:GetChildren()) do
+                    if part:IsA("Part") and part.Name == "GunDrop" then
+                        gunCache = part
+                        break
+                    end
+                end
+                if gunCache then break end
+            end
+        end
+    end
 end
 
 local function getPlayers()
@@ -185,7 +198,9 @@ local function paintPlayers()
             draw.TextOutlined(weapon, boundingBox.x + boundingBox.w + 4, boundingBox.y + 8, Color3.new(1, 1, 1), "SmallestPixel")
         end
 
-        if cfg.enable_gun_esp and gunCache then
+        ::continue::
+    end
+    if cfg.enable_gun_esp and gunCache then
             local gx, gy, onscreen = utility.WorldToScreen(gunCache.Position)
             if gx and gy and onscreen then
                 local corners_3d = draw.GetPartCorners(gunCache)
@@ -216,10 +231,6 @@ local function paintPlayers()
                 draw.TextOutlined("Dropped Gun", topx, topy - 8, Color3.new(1, 1, 1), "SmallestPixel")
             end
         end
-
-
-        ::continue::
-    end
 end
 
 local function updateMisc()
