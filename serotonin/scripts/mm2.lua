@@ -159,7 +159,7 @@ local function updateConfig()
     cfg.enable_gun_esp = ui.getValue("mm2", "mm2_esp", "Enable Gun ESP") or false
 end
 
-local function paintPlayers()
+local function paint()
     if not isMM2 then return end
 
     for _, playerData in ipairs(players) do
@@ -201,36 +201,36 @@ local function paintPlayers()
         ::continue::
     end
     if cfg.enable_gun_esp and gunCache then
-            local gx, gy, onscreen = utility.WorldToScreen(gunCache.Position)
-            if gx and gy and onscreen then
-                local corners_3d = draw.GetPartCorners(gunCache)
-                local topx, topy = nil, nil
-                if corners_3d then
-                    local screen_points = {}
-                    for _, world_pos in ipairs(corners_3d) do
-                        local sx, sy, vis = utility.WorldToScreen(world_pos)
-                        if vis then
-                            table.insert(screen_points, { sx, sy })
-                        end
+        local gx, gy, onscreen = utility.WorldToScreen(gunCache.Position)
+        if gx and gy and onscreen then
+            local corners_3d = draw.GetPartCorners(gunCache)
+            local topx, topy = nil, nil
+            if corners_3d then
+                local screen_points = {}
+                for _, world_pos in ipairs(corners_3d) do
+                    local sx, sy, vis = utility.WorldToScreen(world_pos)
+                    if vis then
+                        table.insert(screen_points, { sx, sy })
+                    end
+                end
+
+                if #screen_points >= 3 then
+                    local hull = draw.ComputeConvexHull(screen_points)
+                    if hull and #hull >= 2 then
+                        draw.Polyline(hull, Color3.new(0, 0, 1), true, 1.0, 255)
+                        draw.ConvexPolyFilled(hull, Color3.new(0, 0, 0.9), 32)
                     end
 
-                    if #screen_points >= 3 then
-                        local hull = draw.ComputeConvexHull(screen_points)
-                        if hull and #hull >= 2 then
-                            draw.Polyline(hull, Color3.new(0, 0, 1), true, 1.0, 255)
-                            draw.ConvexPolyFilled(hull, Color3.new(0, 0, 0.9), 32)
-                        end
-
-                        for _, p in ipairs(hull) do
-                            if not topx or p[2] < topy then
-                                topx, topy = p[1], p[2]
-                            end
+                    for _, p in ipairs(hull) do
+                        if not topx or p[2] < topy then
+                            topx, topy = p[1], p[2]
                         end
                     end
                 end
-                draw.TextOutlined("Dropped Gun", topx, topy - 8, Color3.new(1, 1, 1), "SmallestPixel")
             end
+            draw.TextOutlined("Dropped Gun", topx, topy - 8, Color3.new(1, 1, 1), "SmallestPixel")
         end
+    end
 end
 
 local function updateMisc()
@@ -246,4 +246,4 @@ cheat.Register("onUpdate", function()
     getGun()
 end)
 cheat.Register("onSlowUpdate", updateMisc)
-cheat.Register("onPaint", paintPlayers)
+cheat.Register("onPaint", paint)
