@@ -1,0 +1,1 @@
+py sync.py .\serotonin\scripts\ C:\Serotonin\scripts
