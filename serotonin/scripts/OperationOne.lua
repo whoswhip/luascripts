@@ -4,7 +4,7 @@ ui.newContainer("op1", "visuals", "Visuals")
 ui.newCheckbox("op1", "visuals", "Enable Chams")
 ui.newColorpicker("op1", "visuals", "Chams Color", {r = 255, g = 0, b = 0, a = 192}, true)
 ui.newCheckbox("op1", "visuals", "Enable Filled Chams")
-ui.newColorpicker("op1", "visuals", "Filled Chams Color", {r = 128, g = 0, b = 0, a = 128}, true)
+ui.newColorpicker("op1", "visuals", "Filled Chams Color", {r = 128, g = 0, b = 0, a = 92}, true)
 ui.newCheckbox("op1", "visuals", "Enable Boxes")
 ui.newColorpicker("op1", "visuals", "Box Color", {r = 255, g = 1, b = 0, a = 255}, true)
 ui.newCheckbox("op1", "visuals", "Enable Health Bar")
@@ -48,17 +48,18 @@ local function doAntiRecoil()
 end
 
 local function update()
+    if not data.workspace or not game.Players then return end
     updateUIValues()
     doAntiRecoil()
     data.players = {}
     local lp = entity.getLocalPlayer()
     if not lp then return end
     local players = entity.getPlayers()
-    local viewmodels = game.workspace:FindFirstChild("Viewmodels")
+    local viewmodels = data.workspace:FindFirstChild("Viewmodels")
     if not viewmodels then return end
     for _, player in ipairs(players) do
         if player.Team == lp.Team or not player.Team or player.Team ~= "Blue" and player.Team ~= "Red" then goto continue end
-        local wplayer = game.workspace:FindFirstChild(player.Name)
+        local wplayer = data.workspace:FindFirstChild(player.Name)
         local viewmodel = viewmodels:FindFirstChild("Viewmodels/" .. player.Name)
         if not viewmodel or not wplayer then goto continue end
         local humanoid = wplayer:FindFirstChild("Humanoid")
@@ -187,4 +188,7 @@ local function paint()
 end
 
 cheat.Register("onUpdate", update)
+cheat.Register("onSlowUpdate", function()
+    data.workspace = game.Workspace
+end)
 cheat.Register("onPaint", paint)
