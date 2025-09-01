@@ -1,6 +1,9 @@
-local data = {players = {}, workspace = game.Workspace}
+local data = {
+    players = {}, 
+    workspace = game.Workspace
+}
 ui.newTab("op1", "Operation One")
-ui.newContainer("op1", "visuals", "Visuals")
+ui.newContainer("op1", "visuals", "Visuals", {autosize = false})
 ui.newCheckbox("op1", "visuals", "Enable Chams")
 ui.newColorpicker("op1", "visuals", "Chams Color", {r = 255, g = 0, b = 0, a = 192}, true)
 ui.newCheckbox("op1", "visuals", "Enable Filled Chams")
@@ -10,13 +13,23 @@ ui.newColorpicker("op1", "visuals", "Box Color", {r = 255, g = 1, b = 0, a = 255
 ui.newCheckbox("op1", "visuals", "Enable Health Bar")
 ui.newCheckbox("op1", "visuals", "Enable Names")
 
-ui.newContainer("op1", "rcs", "Anti-Recoil", {autosize = true, next = true})
+ui.newContainer("op1", "rcs", "Anti-Recoil", {autosize = false, next = true})
 ui.newCheckbox("op1", "rcs", "Enable Anti-Recoil")
 ui.newSliderInt("op1", "rcs", "Recoil Control Delay (ms)", 0, 100, 50)
 ui.newSliderInt("op1", "rcs", "Recoil Control Horizontal", -100, 100, 50)
 ui.newSliderInt("op1", "rcs", "Recoil Control Vertical", -100, 100, 50)
 
-local uiValues = {enableChams = false, chamsColor = {r = 255, g = 0, b = 0, a = 128}, enableFilledChams = false, filledChamsColor = {r = 255, g = 0, b = 0, a = 192}, enableBoxes = false, boxColor = {r = 255, g = 1, b = 0, a = 255}, enableAntiRecoil = false, recoilControlHorizontal = 50, recoilControlVertical = 50}
+local uiValues = {
+    enableChams = false, 
+    chamsColor = {r = 255, g = 0, b = 0, a = 128}, 
+    enableFilledChams = false, 
+    filledChamsColor = {r = 255, g = 0, b = 0, a = 192}, 
+    enableBoxes = false, boxColor = {r = 255, g = 1, b = 0, a = 255}, 
+    enableAntiRecoil = false, 
+    recoilControlHorizontal = 50, 
+    recoilControlVertical = 50
+}
+
 local last_rcs_time = 0
 
 local function updateUIValues()
@@ -99,14 +112,25 @@ end
 local function paint()
     if #data.players == 0 then return end
     for _, player_data in ipairs(data.players) do
-        local parts = {head = player_data.viewmodel:FindFirstChild("head"), torso = player_data.viewmodel:FindFirstChild("torso"), arm1 = player_data.viewmodel:FindFirstChild("arm1"), arm2 = player_data.viewmodel:FindFirstChild("arm2"), leg1 = player_data.viewmodel:FindFirstChild("leg1"), leg2 = player_data.viewmodel:FindFirstChild("leg2"), hip1 = player_data.viewmodel:FindFirstChild("hip1"), hip2 = player_data.viewmodel:FindFirstChild("hip2"), shoulder1 = player_data.viewmodel:FindFirstChild("shoulder1"), shoulder2 = player_data.viewmodel:FindFirstChild("shoulder2")}
+        local parts = {
+            head = player_data.viewmodel:FindFirstChild("head"), 
+            torso = player_data.viewmodel:FindFirstChild("torso"), 
+            arm1 = player_data.viewmodel:FindFirstChild("arm1"), 
+            arm2 = player_data.viewmodel:FindFirstChild("arm2"), 
+            leg1 = player_data.viewmodel:FindFirstChild("leg1"), 
+            leg2 = player_data.viewmodel:FindFirstChild("leg2"), 
+            hip1 = player_data.viewmodel:FindFirstChild("hip1"), 
+            hip2 = player_data.viewmodel:FindFirstChild("hip2"), 
+            shoulder1 = player_data.viewmodel:FindFirstChild("shoulder1"), 
+            shoulder2 = player_data.viewmodel:FindFirstChild("shoulder2")
+        }
         local chamsColor = color3FromUI(uiValues.chamsColor)
         local boxColor = color3FromUI(uiValues.boxColor)
         local chamsAlpha = math.min(uiValues.chamsColor.a, 255)
         local boxAlpha = math.min(uiValues.boxColor.a, 255)
 
         if uiValues.enableChams then
-            for _, part in pairs({parts.head, parts.torso}) do
+            for _, part in pairs({parts.head, parts.torso, parts.arm1, parts.arm2, parts.leg1, parts.leg2, parts.hip1, parts.hip2, parts.shoulder1, parts.shoulder2}) do
                 if part then
                     local corners = draw.GetPartCorners(part)
                     local screen_points = getScreenPointsFromCorners(corners)
@@ -121,24 +145,24 @@ local function paint()
                     end
                 end
             end
-            for _, pair in pairs({{parts.hip1, parts.leg1}, {parts.hip2, parts.leg2}, {parts.shoulder1, parts.arm1}, {parts.shoulder2, parts.arm2}}) do
-                if pair[1] and pair[2] then
-                    local corners1 = draw.GetPartCorners(pair[1])
-                    local corners2 = draw.GetPartCorners(pair[2])
-                    local screen_points = {}
-                    for _, p in ipairs(getScreenPointsFromCorners(corners1)) do table.insert(screen_points, p) end
-                    for _, p in ipairs(getScreenPointsFromCorners(corners2)) do table.insert(screen_points, p) end
-                    local hull = draw.ComputeConvexHull(screen_points)
-                    if hull and #hull >= 3 then
-                        if uiValues.enableFilledChams then
-                            local filledChamsColor = color3FromUI(uiValues.filledChamsColor)
-                            local filledChamsAlpha = math.min(uiValues.filledChamsColor.a, 255)
-                            draw.ConvexPolyFilled(hull, filledChamsColor, filledChamsAlpha)
-                        end
-                        if uiValues.enableChams then draw.Polyline(hull, chamsColor, true, 1, chamsAlpha) end
-                    end
-                end
-            end
+            -- for _, pair in pairs({{parts.hip1, parts.leg1}, {parts.hip2, parts.leg2}, {parts.shoulder1, parts.arm1}, {parts.shoulder2, parts.arm2}}) do
+            --     if pair[1] and pair[2] then
+            --         local corners1 = draw.GetPartCorners(pair[1])
+            --         local corners2 = draw.GetPartCorners(pair[2])
+            --         local screen_points = {}
+            --         for _, p in ipairs(getScreenPointsFromCorners(corners1)) do table.insert(screen_points, p) end
+            --         for _, p in ipairs(getScreenPointsFromCorners(corners2)) do table.insert(screen_points, p) end
+            --         local hull = draw.ComputeConvexHull(screen_points)
+            --         if hull and #hull >= 3 then
+            --             if uiValues.enableFilledChams then
+            --                 local filledChamsColor = color3FromUI(uiValues.filledChamsColor)
+            --                 local filledChamsAlpha = math.min(uiValues.filledChamsColor.a, 255)
+            --                 draw.ConvexPolyFilled(hull, filledChamsColor, filledChamsAlpha)
+            --             end
+            --             if uiValues.enableChams then draw.Polyline(hull, chamsColor, true, 1, chamsAlpha) end
+            --         end
+            --     end
+            -- end
         end
         if uiValues.enableBoxes or uiValues.enableHealthBar or uiValues.enableNames then
             local all_screen_points = {}
