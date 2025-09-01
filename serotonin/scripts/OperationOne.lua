@@ -8,7 +8,15 @@ ui.newColorpicker("op1", "visuals", "Filled Chams Color", {r=128, g=0, b=0, a=19
 ui.newCheckbox("op1", "visuals", "Enable Boxes")
 ui.newColorpicker("op1", "visuals", "Box Color", {r=255, g=1, b=0, a=255}, true)
 
-local uiValues = {enableChams = false, chamsColor = {r=255, g=0, b=0, a=128}, enableFilledChams = false, filledChamsColor = {r=255, g=0, b=0, a=192}, enableBoxes = false, boxColor = {r=255, g=1, b=0, a=255}}
+ui.newContainer("op1", "rcs", "Anti-Recoil", { autosize = true, next = true })
+ui.newCheckbox("op1", "rcs", "Enable Anti-Recoil")
+ui.newSliderInt("op1", "rcs", "Recoil Control Delay (ms)", 0, 100, 50)
+ui.newSliderInt("op1", "rcs", "Recoil Control Horizontal", -100, 100, 50)
+ui.newSliderInt("op1", "rcs", "Recoil Control Vertical", -100, 100, 50)
+
+
+local uiValues = {enableChams = false, chamsColor = {r=255, g=0, b=0, a=128}, enableFilledChams = false, filledChamsColor = {r=255, g=0, b=0, a=192}, enableBoxes = false, boxColor = {r=255, g=1, b=0, a=255}, enableAntiRecoil = false, recoilControlHorizontal = 50, recoilControlVertical = 50}
+local last_rcs_time = 0
 
 local function updateUIValues()
     uiValues.enableChams = ui.getValue("op1", "visuals", "Enable Chams")
@@ -17,10 +25,28 @@ local function updateUIValues()
     uiValues.filledChamsColor = ui.getValue("op1", "visuals", "Filled Chams Color")
     uiValues.enableBoxes = ui.getValue("op1", "visuals", "Enable Boxes")
     uiValues.boxColor = ui.getValue("op1", "visuals", "Box Color")
+
+    uiValues.enableAntiRecoil = ui.getValue("op1", "rcs", "Enable Anti-Recoil")
+    uiValues.recoilControlHorizontal = ui.getValue("op1", "rcs", "Recoil Control Horizontal")
+    uiValues.recoilControlVertical = ui.getValue("op1", "rcs", "Recoil Control Vertical")
+    uiValues.recoilControlDelay = ui.getValue("op1", "rcs", "Recoil Control Delay (ms)")
+end
+
+local function doAntiRecoil() 
+    if uiValues.enableAntiRecoil and utility.GetMenuState() == false then
+        if keyboard.isPressed(0x01) and keyboard.isPressed(0x02) then
+            local current_time = utility.GetTickCount()
+            if current_time - last_rcs_time >= uiValues.recoilControlDelay then
+                utility.MoveMouse(uiValues.recoilControlHorizontal / 10, uiValues.recoilControlVertical / 10)
+                last_rcs_time = current_time
+            end
+        end
+    end
 end
 
 local function update()
     updateUIValues()
+    doAntiRecoil()
     data.players = {}
     local lp = entity.getLocalPlayer()
     if not lp then return end
@@ -48,11 +74,16 @@ local function getScreenPointsFromCorners(corners)
     return screen_points
 end
 
-local function color3FromUI(color)
-    return Color3.new(color.r / 255, color.g / 255, color.b / 255)
-end
+local function color3FromUI(color) return Color3.new(color.r / 255, color.g / 255, color.b / 255) end
 
-local function clamp(v) if v < 0 then return 0 elseif v > 1 then return 1 end return v end
+local function clamp(v)
+    if v < 0 then
+        return 0
+    elseif v > 1 then
+        return 1
+    end
+    return v
+end
 
 local function RectOutlined(x, y, width, height, color, thickness)
     local outlineColor = Color3.new(clamp(color.r - 0.7), clamp(color.g - 0.7), clamp(color.b - 0.7))
@@ -62,6 +93,7 @@ local function RectOutlined(x, y, width, height, color, thickness)
 end
 
 local function paint()
+    if #data.players == 0 then return end
     for _, player_data in ipairs(data.players) do
         local parts = {head = player_data.viewmodel:FindFirstChild("head"), torso = player_data.viewmodel:FindFirstChild("torso"), arm1 = player_data.viewmodel:FindFirstChild("arm1"), arm2 = player_data.viewmodel:FindFirstChild("arm2"), leg1 = player_data.viewmodel:FindFirstChild("leg1"), leg2 = player_data.viewmodel:FindFirstChild("leg2"), hip1 = player_data.viewmodel:FindFirstChild("hip1"), hip2 = player_data.viewmodel:FindFirstChild("hip2"), shoulder1 = player_data.viewmodel:FindFirstChild("shoulder1"), shoulder2 = player_data.viewmodel:FindFirstChild("shoulder2")}
         local chamsColor = color3FromUI(uiValues.chamsColor)
@@ -75,15 +107,13 @@ local function paint()
                     local corners = draw.GetPartCorners(part)
                     local screen_points = getScreenPointsFromCorners(corners)
                     local hull = draw.ComputeConvexHull(screen_points)
-                    if hull and #hull >= 3 then 
+                    if hull and #hull >= 3 then
                         if uiValues.enableFilledChams then
                             local filledChamsColor = color3FromUI(uiValues.filledChamsColor)
                             local filledChamsAlpha = math.min(uiValues.filledChamsColor.a, 255)
-                            draw.ConvexPolyFilled(hull, filledChamsColor, filledChamsAlpha) 
+                            draw.ConvexPolyFilled(hull, filledChamsColor, filledChamsAlpha)
                         end
-                        if uiValues.enableChams then
-                            draw.Polyline(hull, chamsColor, true, 1, chamsAlpha)
-                        end
+                        if uiValues.enableChams then draw.Polyline(hull, chamsColor, true, 1, chamsAlpha) end
                     end
                 end
             end
@@ -101,9 +131,7 @@ local function paint()
                             local filledChamsAlpha = math.min(uiValues.filledChamsColor.a, 255)
                             draw.ConvexPolyFilled(hull, filledChamsColor, filledChamsAlpha)
                         end
-                        if uiValues.enableChams then
-                            draw.Polyline(hull, chamsColor, true, 1, chamsAlpha)
-                        end
+                        if uiValues.enableChams then draw.Polyline(hull, chamsColor, true, 1, chamsAlpha) end
                     end
                 end
             end
