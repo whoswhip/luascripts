@@ -2,20 +2,21 @@ local data = {players = {}, workspace = game.Workspace}
 ui.newTab("op1", "Operation One")
 ui.newContainer("op1", "visuals", "Visuals")
 ui.newCheckbox("op1", "visuals", "Enable Chams")
-ui.newColorpicker("op1", "visuals", "Chams Color", {r=255, g=0, b=0, a=128}, true)
+ui.newColorpicker("op1", "visuals", "Chams Color", {r = 255, g = 0, b = 0, a = 128}, true)
 ui.newCheckbox("op1", "visuals", "Enable Filled Chams")
-ui.newColorpicker("op1", "visuals", "Filled Chams Color", {r=128, g=0, b=0, a=192}, true)
+ui.newColorpicker("op1", "visuals", "Filled Chams Color", {r = 128, g = 0, b = 0, a = 192}, true)
 ui.newCheckbox("op1", "visuals", "Enable Boxes")
-ui.newColorpicker("op1", "visuals", "Box Color", {r=255, g=1, b=0, a=255}, true)
+ui.newColorpicker("op1", "visuals", "Box Color", {r = 255, g = 1, b = 0, a = 255}, true)
+ui.newCheckbox("op1", "visuals", "Enable Health Bar")
+ui.newCheckbox("op1", "visuals", "Enable Names")
 
-ui.newContainer("op1", "rcs", "Anti-Recoil", { autosize = true, next = true })
+ui.newContainer("op1", "rcs", "Anti-Recoil", {autosize = true, next = true})
 ui.newCheckbox("op1", "rcs", "Enable Anti-Recoil")
 ui.newSliderInt("op1", "rcs", "Recoil Control Delay (ms)", 0, 100, 50)
 ui.newSliderInt("op1", "rcs", "Recoil Control Horizontal", -100, 100, 50)
 ui.newSliderInt("op1", "rcs", "Recoil Control Vertical", -100, 100, 50)
 
-
-local uiValues = {enableChams = false, chamsColor = {r=255, g=0, b=0, a=128}, enableFilledChams = false, filledChamsColor = {r=255, g=0, b=0, a=192}, enableBoxes = false, boxColor = {r=255, g=1, b=0, a=255}, enableAntiRecoil = false, recoilControlHorizontal = 50, recoilControlVertical = 50}
+local uiValues = {enableChams = false, chamsColor = {r = 255, g = 0, b = 0, a = 128}, enableFilledChams = false, filledChamsColor = {r = 255, g = 0, b = 0, a = 192}, enableBoxes = false, boxColor = {r = 255, g = 1, b = 0, a = 255}, enableAntiRecoil = false, recoilControlHorizontal = 50, recoilControlVertical = 50}
 local last_rcs_time = 0
 
 local function updateUIValues()
@@ -25,6 +26,8 @@ local function updateUIValues()
     uiValues.filledChamsColor = ui.getValue("op1", "visuals", "Filled Chams Color")
     uiValues.enableBoxes = ui.getValue("op1", "visuals", "Enable Boxes")
     uiValues.boxColor = ui.getValue("op1", "visuals", "Box Color")
+    uiValues.enableHealthBar = ui.getValue("op1", "visuals", "Enable Health Bar")
+    uiValues.enableNames = ui.getValue("op1", "visuals", "Enable Names")
 
     uiValues.enableAntiRecoil = ui.getValue("op1", "rcs", "Enable Anti-Recoil")
     uiValues.recoilControlHorizontal = ui.getValue("op1", "rcs", "Recoil Control Horizontal")
@@ -32,7 +35,7 @@ local function updateUIValues()
     uiValues.recoilControlDelay = ui.getValue("op1", "rcs", "Recoil Control Delay (ms)")
 end
 
-local function doAntiRecoil() 
+local function doAntiRecoil()
     if uiValues.enableAntiRecoil and utility.GetMenuState() == false then
         if keyboard.isPressed(0x01) and keyboard.isPressed(0x02) then
             local current_time = utility.GetTickCount()
@@ -55,12 +58,12 @@ local function update()
     if not viewmodels then return end
     for _, player in ipairs(players) do
         if player.Team == lp.Team or not player.Team or player.Team ~= "Blue" and player.Team ~= "Red" then goto continue end
-        local wplayer = data.workspace:FindFirstChild(player.Name)
+        local wplayer = game.workspace:FindFirstChild(player.Name)
         local viewmodel = viewmodels:FindFirstChild("Viewmodels/" .. player.Name)
         if not viewmodel or not wplayer then goto continue end
         local humanoid = wplayer:FindFirstChild("Humanoid")
         if humanoid and humanoid.Health <= 0 then goto continue end
-        table.insert(data.players, {workspace = wplayer, entity = player, viewmodel = viewmodel})
+        table.insert(data.players, {workspace = wplayer, entity = player, viewmodel = viewmodel, humanoid = humanoid})
         ::continue::
     end
 end
@@ -136,7 +139,7 @@ local function paint()
                 end
             end
         end
-        if uiValues.enableBoxes then
+        if uiValues.enableBoxes or uiValues.enableHealthBar or uiValues.enableNames then
             local all_screen_points = {}
             for _, part in pairs(parts) do
                 if part then
@@ -155,8 +158,30 @@ local function paint()
                 end
                 local width = max_x - min_x
                 local height = max_y - min_y
-                RectOutlined(min_x, min_y, width, height, boxColor, 1)
+                if uiValues.enableBoxes then RectOutlined(min_x, min_y, width, height, boxColor, 1) end
+                if uiValues.enableHealthBar then
+                    local health = player_data.humanoid and player_data.humanoid.Health or 100
+                    local max_health = player_data.humanoid and player_data.humanoid.MaxHealth or 100
+
+                    local health_percentage = health / max_health
+                    local low_health_threshold = 0.3
+                    local low_health_color = Color3.fromRGB(200, 0, 0)
+                    local high_health_color = Color3.fromRGB(0, 200, 0)
+
+                    draw.RectFilled(min_x - (width / 10) - 1, min_y - 1, 4, height, Color3.new(0.2, 0.2, 0.2), 1, 0, 255)
+                    local health_color = low_health_color:Lerp(high_health_color, health_percentage)
+                    local bar_height = height * health_percentage
+                    local bar_y = min_y + (height - bar_height)
+                    draw.Gradient(min_x - (width / 10), bar_y, 2, bar_height, health_color, health_color, false, 255, 255)
+                end
+
+                if uiValues.enableNames then
+                    local name = player_data.entity.Name or "Unknown"
+                    local tw, th = draw.GetTextSize(name, "SmallestPixel")
+                    draw.TextOutlined(name, min_x + (width / 2) - (tw / 2), min_y - 12, Color3.new(1, 1, 1), "SmallestPixel")
+                end
             end
+
         end
     end
 end
