@@ -145,6 +145,16 @@ end
 draw.RectOutlined = RectOutlined
 
 local function getMap()
+    local workspaceChildren = game.Workspace:GetChildren()
+    if #workspaceChildren > 0 then
+        for _, child in ipairs(workspaceChildren) do
+            if MM2_MAPS[child.Name] then
+                map = child.Name
+                return
+            end
+        end
+    end
+
     local lobby = game.Workspace:FindFirstChild("Lobby")
     if lobby then
         local maps = {}
