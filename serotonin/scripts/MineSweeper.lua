@@ -25,6 +25,10 @@ local data = {
         drawFlags = true,
         drawClears = true,
         drawGuesses = true
+    },
+    timing = {
+        lastPlanTick = 0,
+        planIntervalMs = 50
     }
 }
 
@@ -43,6 +47,21 @@ local abs, floor, huge = math.abs, math.floor, math.huge
 local sort = table.sort
 local tostring, tonumber, ipairs, pairs = tostring, tonumber, ipairs, pairs
 local Color3_fromRGB = Color3 and Color3.fromRGB
+
+local NUM_COLORS = {}
+for i = 1, 8 do
+    local c = colors[i]
+    if c then NUM_COLORS[i] = (Color3_fromRGB and Color3_fromRGB(c.R, c.G, c.B) or Color3.fromRGB(c.R, c.G, c.B)) end
+end
+local COL_YELLOW = (Color3_fromRGB and Color3_fromRGB(255, 255, 0) or Color3.fromRGB(255, 255, 0))
+local COL_FLAG = (Color3_fromRGB and Color3_fromRGB(255, 51, 51) or Color3.fromRGB(255, 51, 51))
+local COL_CLEAR = (Color3_fromRGB and Color3_fromRGB(51, 255, 51) or Color3.fromRGB(51, 255, 51))
+local COL_GUESS_HIGH = (Color3_fromRGB and Color3_fromRGB(255, 180, 50) or Color3.fromRGB(255, 180, 50))
+local COL_GUESS_HIGH_PCT = (Color3_fromRGB and Color3_fromRGB(255, 210, 120) or Color3.fromRGB(255, 210, 120))
+local COL_GUESS_SAFE = (Color3_fromRGB and Color3_fromRGB(50, 220, 220) or Color3.fromRGB(50, 220, 220))
+local COL_GUESS_SAFE_PCT = (Color3_fromRGB and Color3_fromRGB(120, 230, 230) or Color3.fromRGB(120, 230, 230))
+local COL_GUESS_OTHER = (Color3_fromRGB and Color3_fromRGB(180, 100, 220) or Color3.fromRGB(180, 100, 220))
+local COL_GUESS_OTHER_PCT = (Color3_fromRGB and Color3_fromRGB(200, 150, 230) or Color3.fromRGB(200, 150, 230))
 
 ui.newTab("ms", "Minesweeper")
 ui.newContainer("ms", "settings", "Settings")
@@ -106,6 +125,15 @@ local function median(tbl)
     return tbl[mid]
 end
 
+local function typicalSpacing(sorted_centers)
+    if #sorted_centers < 2 then return 4 end
+    local diffs = {}
+    for i = 2, #sorted_centers do
+        diffs[#diffs + 1] = abs(sorted_centers[i] - sorted_centers[i - 1])
+    end
+    return median(diffs) or 4
+end
+
 local function nearestIndex(v, centers)
     local bestI = 1
     local bestD = huge
@@ -117,6 +145,12 @@ local function nearestIndex(v, centers)
         end
     end
     return bestI - 1
+end
+
+local function isCoveredCell(cell)
+    if not cell then return false end
+    if cell.state == "number" or cell.state == "flagged" then return false end
+    return cell.covered ~= false
 end
 
 local function buildGrid()
@@ -144,42 +178,21 @@ local function buildGrid()
         end
     end
 
-    local widthsX, widthsZ = {}, {}
     local centersX, centersZ = {}, {}
     for _, item in ipairs(raw) do 
         local part = item.part
         local pos = item.pos
-        local minX, maxX, minZ, maxZ
-        if draw and draw.GetPartCorners then
-            local corners = draw.GetPartCorners(part)
-            if corners and #corners > 0 then
-                for i = 1, #corners do
-                    local corner = corners[i]
-                    local x, z = corner.x or corner.X or corner[1], corner.z or corner.Z or corner[3]
-                    if x and z then
-                        if not minX or x < minX then minX = x end
-                        if not maxX or x > maxX then maxX = x end
-                        if not minZ or z < minZ then minZ = z end
-                        if not maxZ or z > maxZ then maxZ = z end
-                    end
-                end
-            end
-        end
-        if minX and maxX and minZ and maxZ then
-            widthsX[#centersX + 1] = math.abs(maxX - minX)
-            widthsZ[#centersZ + 1] = math.abs(maxZ - minZ)
-        end
         centersX[#centersX + 1] = pos.X
         centersZ[#centersZ + 1] = pos.Z
     end
 
-    local typicalWX = median(widthsX) or 4
-    local typicalWZ = median(widthsZ) or 4
+    sort(centersX)
+    sort(centersZ)
+    local typicalWX = typicalSpacing(centersX)
+    local typicalWZ = typicalSpacing(centersZ)
     local epsX = typicalWX * 0.6
     local epsZ = typicalWZ * 0.6
 
-    sort(centersX)
-    sort(centersZ)
     data.cache.xs_centers_cached = clusterSorted(centersX, epsX)
     data.cache.zs_centers_cached = clusterSorted(centersZ, epsZ)
     data.grid.w = #data.cache.xs_centers_cached
@@ -203,6 +216,8 @@ local function buildGrid()
                 state = "unknown",
                 number = nil,
                 k = k,
+                covered = true,
+                neigh = nil,
             }
             data.cells.all[k] = cell
             row[iz] = cell
@@ -234,7 +249,13 @@ local function buildGrid()
 
             if part.Color then
                 local color = part.Color
-                cell.color = { R = color.R or color.r or color[1], G = color.G or color.g or color[2], B = color.B or color.b or color[3] }
+                local r = color.R or color.r or color[1]
+                local g = color.G or color.g or color[2]
+                local b = color.B or color.b or color[3]
+                if r and r <= 1 then r = math.floor(r * 255 + 0.5) end
+                if g and g <= 1 then g = math.floor(g * 255 + 0.5) end
+                if b and b <= 1 then b = math.floor(b * 255 + 0.5) end
+                cell.color = { R = r, G = g, B = b }
             end
 
             local ngui = part:FindFirstChild("NumberGui")
@@ -242,110 +263,167 @@ local function buildGrid()
                 local textLabel = ngui:FindFirstChild("TextLabel")
                 if textLabel and textLabel.Value and isNumber(textLabel.Value) then
                     cell.number = tonumber(textLabel.Value)
-                    cell.state = "number"
-                    table.insert(data.cells.numbered, cell)
+                    cell.covered = false
+                end
+            end
+
+            if cell.color and cell.color.R and cell.color.G and cell.color.B then
+                if cell.color.R == 255 and cell.color.G == 255 and cell.color.B == 125 then
+                    cell.covered = false
                 end
             end
             if isPartFlagged(part) then
                 cell.state = "flagged"
             end
+            if cell.number and not cell.covered then
+                cell.state = "number"
+                table.insert(data.cells.numbered, cell)
+            end
+        end
+    end
+
+    for iz = 0, data.grid.h - 1 do
+        for ix = 0, data.grid.w - 1 do
+            local c = data.cells.grid[ix][iz]
+            local neigh = {}
+            for dz = -1, 1 do
+                for dx = -1, 1 do
+                    if not (dx == 0 and dz == 0) then
+                        local jx, jz = ix + dx, iz + dz
+                        if jx >= 0 and jx < data.grid.w and jz >= 0 and jz < data.grid.h then
+                            local row = data.cells.grid[jx]
+                            local n = row and row[jz]
+                            if n then neigh[#neigh + 1] = n end
+                        end
+                    end
+                end
+            end
+            c.neigh = neigh
         end
     end
 end
 
 local function neighbors(ix, iz)
-    local out = {}
-    for dz = -1, 1 do
-        for dx = -1, 1 do
-            if not (dx == 0 and dz == 0) then
-                local jx, jz = ix + dx, iz + dz
-                if jx >= 0 and jx < data.grid.w and jz >= 0 and jz < data.grid.h then
-                    local row = data.cells.grid[jx]
-                    local c = row and row[jz]
-                    if c then out[#out + 1] = c end
-                end
-            end
-        end
-    end
-    return out
+    local row = data.cells.grid[ix]
+    local c = row and row[iz]
+    return c and c.neigh or {}
 end
 
-local function isCoveredCell(cell)
-    if not cell then return false end
-    if cell.state == "number" or cell.state == "flagged" then return false end
-    if cell.color and cell.color.R and cell.color.G and cell.color.B then
-    if cell.color.R == 255 and cell.color.G == 255 and cell.color.B == 125 then
-            return false
-        end
-    end
-    return true
-end
+
 
 local function planMove()
-    if updateUIData then pcall(updateUIData) end
+    if not data.cache.xs_centers_cached or not data.cache.zs_centers_cached or data.grid.w == 0 or data.grid.h == 0 then
+        return
+    end
+    if #data.cells.numbered == 0 then
+        data.cells.toFlag = {}
+        data.cells.toClear = {}
+        data.cells.guess = {}
+        return
+    end
     data.cells.toFlag = {}
     data.cells.toClear = {}
     data.cells.guess = {}
-    local accum = {}
-    for _, cell in pairs(data.cells.numbered) do
-        local num = cell.number or 0
-        local nbs = neighbors(cell.ix, cell.iz)
-        local unknowns = {}
+
+    local knownFlag = {}
+    for _, cell in pairs(data.cells.all) do
+        if cell.state == "flagged" then knownFlag[cell] = true end
+    end
+    local knownClear = {}
+
+    local scratch = {}
+    local function computeUnknowns(c)
+        local nbs = neighbors(c.ix, c.iz)
+        for i = 1, #scratch do scratch[i] = nil end
         local flaggedCount = 0
-        for _, nb in pairs(nbs) do
-            if nb.state == "flagged" then
+        for i = 1, #nbs do
+            local nb = nbs[i]
+            if knownFlag[nb] or nb.state == "flagged" then
                 flaggedCount = flaggedCount + 1
-            elseif isCoveredCell(nb) then
-                table.insert(unknowns, nb)
+            elseif not knownClear[nb] and isCoveredCell(nb) then
+                scratch[#scratch + 1] = nb
             end
         end
-        local remaining = num - flaggedCount
-        if remaining > 0 and remaining == #unknowns then
-        for _, u in ipairs(unknowns) do data.cells.toFlag[u.k] = true end
-        elseif remaining == 0 and #unknowns > 0 then
-        for _, u in ipairs(unknowns) do data.cells.toClear[u.k] = true end
-        else
-            if #unknowns > 0 then
-                local p_each = remaining / #unknowns
-                for _, u in ipairs(unknowns) do
-            local k = u.k
-                    if not data.cells.toFlag[k] and not data.cells.toClear[k] then
-                        local e = accum[k]
-                        if not e then e = { sum = 0, w = 0 } accum[k] = e end
-                        e.sum = e.sum + p_each
-                        e.w = e.w + 1
+        return scratch, flaggedCount
+    end
+
+    local changed = true
+    local guard = 0
+    while changed and guard < 64 do
+        changed = false
+        guard = guard + 1
+        for _, cell in ipairs(data.cells.numbered) do
+            local num = cell.number or 0
+            local unknowns, flaggedCount = computeUnknowns(cell)
+            local remaining = num - flaggedCount
+            if remaining > 0 and remaining == #unknowns then
+                for i = 1, #unknowns do
+                    local u = unknowns[i]
+                    if not knownFlag[u] then
+                        knownFlag[u] = true
+                        data.cells.toFlag[u] = true
+                        changed = true
+                    end
+                end
+            elseif remaining == 0 and #unknowns > 0 then
+                for i = 1, #unknowns do
+                    local u = unknowns[i]
+                    if not knownClear[u] then
+                        knownClear[u] = true
+                        data.cells.toClear[u] = true
+                        changed = true
                     end
                 end
             end
         end
     end
-    local pflag = (data.ui and data.ui.PROB_FLAG_THRESHOLD) or PROB_FLAG_THRESHOLD
-    local psafe = (data.ui and data.ui.PROB_SAFE_THRESHOLD) or PROB_SAFE_THRESHOLD
-    for k, e in pairs(accum) do
-        local p = (e.w > 0) and (e.sum / e.w) or 0
-        local cell = data.cells.all[k]
-        if cell and cell.state == "flagged" then
-        else
-            if p >= pflag then
-                data.cells.toFlag[k] = true
-            else
-                data.cells.guess[k] = p
+
+    local accum = {}
+    for _, cell in ipairs(data.cells.numbered) do
+        local num = cell.number or 0
+        local unknowns, flaggedCount = computeUnknowns(cell)
+        local remaining = num - flaggedCount
+        if remaining > 0 and #unknowns > 0 then
+            local p_each = remaining / #unknowns
+            for i = 1, #unknowns do
+                local u = unknowns[i]
+                if not knownFlag[u] and not knownClear[u] then
+                    local e = accum[u]
+                    if not e then e = { sum = 0, w = 0 } accum[u] = e end
+                    e.sum = e.sum + p_each
+                    e.w = e.w + 1
+                end
             end
         end
     end
 
-    for k, _ in pairs(data.cells.toFlag) do
-        data.cells.toClear[k] = nil
-        data.cells.guess[k] = nil
+    local pflag = (data.ui and data.ui.PROB_FLAG_THRESHOLD) or PROB_FLAG_THRESHOLD
+    local psafe = (data.ui and data.ui.PROB_SAFE_THRESHOLD) or PROB_SAFE_THRESHOLD
+    for cell, e in pairs(accum) do
+        local p = (e.w > 0) and (e.sum / e.w) or 0
+        if knownFlag[cell] then
+            data.cells.toFlag[cell] = true
+        else
+            if p >= pflag then
+                data.cells.toFlag[cell] = true
+                knownFlag[cell] = true
+            else
+                data.cells.guess[cell] = p
+            end
+        end
     end
-    for k, _ in pairs(data.cells.toClear) do
-        data.cells.toFlag[k] = nil
-        data.cells.guess[k] = nil
+
+    for cell, _ in pairs(data.cells.toFlag) do
+        data.cells.toClear[cell] = nil
+        data.cells.guess[cell] = nil
     end
-    for k, _ in pairs(data.cells.guess) do
-        local cell = data.cells.all[k]
-        if cell and cell.state == "flagged" then
-            data.cells.guess[k] = nil
+    for cell, _ in pairs(data.cells.toClear) do
+        data.cells.toFlag[cell] = nil
+        data.cells.guess[cell] = nil
+    end
+    for cell, _ in pairs(data.cells.guess) do
+        if knownFlag[cell] then
+            data.cells.guess[cell] = nil
         end
     end
 end
@@ -378,7 +456,8 @@ local function cellToScreen(cell)
     end
     if not pos then return nil, nil end
     if not utility or not utility.WorldToScreen then return nil, nil end
-    local sx, sy = utility.WorldToScreen(pos)
+    local sx, sy, onScreen = utility.WorldToScreen(pos)
+    if not onScreen then return nil, nil end
     return sx, sy
 end
 local function fmtPct(p)
@@ -390,53 +469,39 @@ local function paint()
         for _, cell in ipairs(data.cells.numbered) do
             local sx, sy = cellToScreen(cell)
             if sx and sy then
-                local col = Color3_fromRGB and Color3_fromRGB(255, 255, 0) or Color3.fromRGB(255, 255, 0)
-                if cell.number and colors[cell.number] then
-                    local c = colors[cell.number]
-                    col = (Color3_fromRGB and Color3_fromRGB(c.R, c.G, c.B) or Color3.fromRGB(c.R, c.G, c.B))
-                end
-
+                local col = NUM_COLORS[cell.number or 0] or COL_YELLOW
                 draw.TextOutlined(tostring(cell.number or "?"), sx, sy, col)
             end
         end
     end
 
     if data.ui.drawFlags then
-        for k, _ in pairs(data.cells.toFlag or {}) do
-            local c = data.cells.all[k]
-            if c then
-                local sx, sy = cellToScreen(c)
-                if sx and sy then draw.TextOutlined("F", sx, sy, (Color3_fromRGB and Color3_fromRGB(255, 51, 51) or Color3.fromRGB(255, 51, 51))) end
-            end
+        for cell, _ in pairs(data.cells.toFlag or {}) do
+            local sx, sy = cellToScreen(cell)
+            if sx and sy then draw.TextOutlined("F", sx, sy, COL_FLAG) end
         end
     end
 
     if data.ui.drawClears then
-        for k, _ in pairs(data.cells.toClear or {}) do
-            local c = data.cells.all[k]
-            if c then
-                local sx, sy = cellToScreen(c)
-                if sx and sy then draw.TextOutlined("O", sx, sy, (Color3_fromRGB and Color3_fromRGB(51, 255, 51) or Color3.fromRGB(51, 255, 51))) end
-            end
+        for cell, _ in pairs(data.cells.toClear or {}) do
+            local sx, sy = cellToScreen(cell)
+            if sx and sy then draw.TextOutlined("O", sx, sy, COL_CLEAR) end
         end
     end
 
     if data.ui.drawGuesses then
-        for k, p in pairs(data.cells.guess or {}) do
-            local c = data.cells.all[k]
-            if c then
-                local sx, sy = cellToScreen(c)
-                if sx and sy then
-                    if p >= data.ui.PROB_FLAG_THRESHOLD then
-                        draw.TextOutlined("X", sx, sy, (Color3_fromRGB and Color3_fromRGB(255, 180, 50) or Color3.fromRGB(255, 180, 50)))
-                        draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, (Color3_fromRGB and Color3_fromRGB(255, 210, 120) or Color3.fromRGB(255, 210, 120)))
-                    elseif p <= data.ui.PROB_SAFE_THRESHOLD then
-                        draw.TextOutlined("O", sx, sy, (Color3_fromRGB and Color3_fromRGB(50, 220, 220) or Color3.fromRGB(50, 220, 220)))
-                        draw.TextOutlined(fmtPct(1 - p), sx + 10, sy - 10, (Color3_fromRGB and Color3_fromRGB(120, 230, 230) or Color3.fromRGB(120, 230, 230)))
-                    else
-                        draw.TextOutlined("?", sx, sy, (Color3_fromRGB and Color3_fromRGB(180, 100, 220) or Color3.fromRGB(180, 100, 220)))
-                        draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, (Color3_fromRGB and Color3_fromRGB(200, 150, 230) or Color3.fromRGB(200, 150, 230)))
-                    end
+        for cell, p in pairs(data.cells.guess or {}) do
+            local sx, sy = cellToScreen(cell)
+            if sx and sy then
+                if p >= data.ui.PROB_FLAG_THRESHOLD then
+                    draw.TextOutlined("X", sx, sy, COL_GUESS_HIGH)
+                    draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, COL_GUESS_HIGH_PCT)
+                elseif p <= data.ui.PROB_SAFE_THRESHOLD then
+                    draw.TextOutlined("?", sx, sy, COL_GUESS_SAFE)
+                    draw.TextOutlined(fmtPct(1 - p), sx + 10, sy - 10, COL_GUESS_SAFE_PCT)
+                else
+                    draw.TextOutlined("?", sx, sy, COL_GUESS_OTHER)
+                    draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, COL_GUESS_OTHER_PCT)
                 end
             end
         end
@@ -444,11 +509,18 @@ local function paint()
 end
 
 cheat.register("onUpdate", function()
-    buildGrid()
-    planMove()
+    if data.grid.w == 0 or not data.cache.xs_centers_cached or not data.cache.zs_centers_cached then
+        buildGrid()
+    end
+    local now = (utility and utility.GetTickCount and utility.GetTickCount()) or 0
+    if data.timing.lastPlanTick == 0 or now == 0 or (now - data.timing.lastPlanTick) >= (data.timing.planIntervalMs or 50) then
+        planMove()
+        if now ~= 0 then data.timing.lastPlanTick = now end
+    end
 end)
 cheat.register("onSlowUpdate", function()
     updateUIData()
+    buildGrid()
 end)
 
 cheat.register("onPaint", paint)
