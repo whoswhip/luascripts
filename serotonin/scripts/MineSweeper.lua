@@ -497,10 +497,10 @@ local function paint()
                     draw.TextOutlined("X", sx, sy, COL_GUESS_HIGH)
                     draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, COL_GUESS_HIGH_PCT)
                 elseif p <= data.ui.PROB_SAFE_THRESHOLD then
-                    draw.TextOutlined("?", sx, sy, COL_GUESS_SAFE)
+                    draw.TextOutlined("O?", sx, sy, COL_GUESS_SAFE)
                     draw.TextOutlined(fmtPct(1 - p), sx + 10, sy - 10, COL_GUESS_SAFE_PCT)
                 else
-                    draw.TextOutlined("?", sx, sy, COL_GUESS_OTHER)
+                    draw.TextOutlined("F?", sx, sy, COL_GUESS_OTHER)
                     draw.TextOutlined(fmtPct(p), sx + 10, sy - 10, COL_GUESS_OTHER_PCT)
                 end
             end
