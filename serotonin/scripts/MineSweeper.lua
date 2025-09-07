@@ -1,6 +1,7 @@
 -- Minesweeper Solver
 -- https://roblox.com/games/7871169780/bLockermans-Minesweeper
 -- Made by whoswhip
+-- https://github.com/whoswhip/luascripts/blob/main/serotonin/scripts/MineSweeper.lua
 local data = {
     cells = { 
         all = {},
