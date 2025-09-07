@@ -328,8 +328,6 @@ local function planMove()
         else
             if p >= pflag then
                 data.cells.toFlag[k] = true
-            elseif p <= psafe then
-                data.cells.toClear[k] = true
             else
                 data.cells.guess[k] = p
             end
