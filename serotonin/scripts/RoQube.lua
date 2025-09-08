@@ -58,19 +58,21 @@ ui.newSliderInt("rqbs", "settings", "Hit Hold (ms)", 0, 100, 10)
 ui.newSliderInt("rqbs", "settings", "Lane Y Offset (px)", 0, 100, 0)
 
 ui.setValue("rqbs", "settings", "Auto Play", config.autoPlay)
-ui.setValue("rqbs", "settings", "Hit Chance", config.hitChance)
-ui.setValue("rqbs", "settings", "Hit Delay", config.hitDelay)
-ui.setValue("rqbs", "settings", "Hit Hold", config.hitHold)
-ui.setValue("rqbs", "settings", "Lane Y Offset", config.laneYOffset)
+ui.setValue("rqbs", "settings", "Hit Chance (%)", config.hitChance)
+ui.setValue("rqbs", "settings", "Hit Delay (ms)", config.hitDelay)
+ui.setValue("rqbs", "settings", "Hit Hold (ms)", config.hitHold)
+ui.setValue("rqbs", "settings", "Lane Y Offset (px)", config.laneYOffset)
 
 local function updateConfig()
     config.autoPlay = ui.getValue("rqbs", "settings", "Auto Play")
-    config.hitChance = ui.getValue("rqbs", "settings", "Hit Chance")
-    config.hitDelay = ui.getValue("rqbs", "settings", "Hit Delay")
-    config.hitHold = ui.getValue("rqbs", "settings", "Hit Hold")
-    config.laneYOffset = ui.getValue("rqbs", "settings", "Lane Y Offset")
-    for _, lane in pairs(lanes) do
-        lane.y = InputAreaStartY + config.laneYOffset / 1440
+    config.hitChance = ui.getValue("rqbs", "settings", "Hit Chance (%)")
+    config.hitDelay = ui.getValue("rqbs", "settings", "Hit Delay (ms)")
+    config.hitHold = ui.getValue("rqbs", "settings", "Hit Hold (ms)")
+    config.laneYOffset = ui.getValue("rqbs", "settings", "Lane Y Offset (px)")
+    if config.laneYOffset ~= 0 or config.laneYOffset then
+        for _, lane in pairs(lanes) do
+            lane.y = InputAreaStartY + config.laneYOffset / 1440
+        end
     end
 end
 
