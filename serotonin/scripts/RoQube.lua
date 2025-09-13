@@ -40,22 +40,35 @@ local lanes = {
     Rect(InputAreaWidth, InputAreaHeight, InputAreaStartX + 3 * (InputAreaWidth + InputAreaGap), InputAreaStartY),
 }
 local KEYBINDS = { [1] = 0x44, [2] = 0x46, [3] = 0x4A, [4] = 0x4B } -- D, F, J, K
+
+local ACCURACY_OFFSETS  = {
+    [1] = -50 / 1440, -- MARVELOUS
+    [2] = -25 / 1440, -- PERFECT
+    [3] = 60 / 1440, -- GREAT
+    [4] = 150 / 1440, -- GOOD
+    [5] = 200 / 1440, -- BAD
+    [6] = -10000 / 1440 -- MISS
+}
+
 local config = {
     autoPlay = true,
+    accuracy = { 1, 2, 3 },
     hitChance = 100,
     hitDelay = 0,
     hitHold = 10,
     laneYOffset = 0
 }
+
 local notes = {}
 
 ui.newTab("rqbs", "RoQube")
 ui.newContainer("rqbs", "settings", "Settings", { autosize = true})
 ui.newCheckbox("rqbs", "settings", "Auto Play")
+ui.newMultiselect("rqbs", "settings", "Hit Accuracy", { "MARVELOUS", "PERFECT", "GREAT", "GOOD", "BAD", "MISS" })
 ui.newSliderInt("rqbs", "settings", "Hit Chance (%)", 0, 100, 100)
 ui.newSliderInt("rqbs", "settings", "Hit Delay (ms)", 0, 800, 0)
 ui.newSliderInt("rqbs", "settings", "Hit Hold (ms)", 0, 100, 10)
-ui.newSliderInt("rqbs", "settings", "Lane Y Offset (px)", 0, 100, 0)
+ui.newSliderInt("rqbs", "settings", "Lane Y Offset (px)", -100, 100, 0)
 
 ui.setValue("rqbs", "settings", "Auto Play", config.autoPlay)
 ui.setValue("rqbs", "settings", "Hit Chance (%)", config.hitChance)
@@ -65,6 +78,7 @@ ui.setValue("rqbs", "settings", "Lane Y Offset (px)", config.laneYOffset)
 
 local function updateConfig()
     config.autoPlay = ui.getValue("rqbs", "settings", "Auto Play")
+    config.accuracy = ui.getValue("rqbs", "settings", "Hit Accuracy")
     config.hitChance = ui.getValue("rqbs", "settings", "Hit Chance (%)")
     config.hitDelay = ui.getValue("rqbs", "settings", "Hit Delay (ms)")
     config.hitHold = ui.getValue("rqbs", "settings", "Hit Hold (ms)")
@@ -100,6 +114,20 @@ local function getNotes()
             if qubePart then
                 local sx, sy, onScreen = utility.WorldToScreen(qubePart.Position)
                 if onScreen and sx and sy then
+
+                    if config.accuracy and #config.accuracy > 0 then
+                        local choices = {}
+                        for i, selected in ipairs(config.accuracy) do
+                            if selected then table.insert(choices, i) end
+                        end
+                        if #choices > 0 then
+                            local rnd = utility.randomInt(1, #choices)
+                            local accuracyIndex = choices[rnd]
+                            local offset = (ACCURACY_OFFSETS[accuracyIndex] * sH) or (50 / 1440 * sH)
+                            sy = sy + offset
+                        end
+                    end
+
                     local nx, ny = sx / sW, sy / sH
                     local laneIndex = inLane(nx, ny)
                     if laneIndex then
@@ -115,15 +143,15 @@ local function getNotes()
 end
 
 local function playNotes()
+    if utility.GetMenuState() or not config.autoPlay then return end
     for _, note in ipairs(notes) do
         local lane = note.lane
         if lane and KEYBINDS[lane] then
-            if utility.randomInt(1, 100) > config.hitChance then
-                return
-            end
+            if utility.randomInt(1, 100) > config.hitChance then return end
             if config.hitDelay > 0 then
                 wait(config.hitDelay)
             end
+
             keyboard.click(KEYBINDS[lane], config.hitHold)
         end
     end
@@ -143,7 +171,6 @@ cheat.Register("onUpdate", function()
     playNotes()
     updateConfig()
 end)
-
 cheat.Register("onPaint", function()
     drawLanes()
 end)
