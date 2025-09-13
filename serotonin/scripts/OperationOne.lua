@@ -1,3 +1,8 @@
+-- Operation One - Gadget ESP
+-- game: https://www.roblox.com/games/72920620366355/Operation-One-MAP-CHANGES
+-- github: https://github.com/whoswhip/luascripts/blob/main/serotonin/scripts/OperationOne.lua
+-- made by: whoswhip
+
 local data = {
     gadget_names = {
         RemoteC4 = false,
