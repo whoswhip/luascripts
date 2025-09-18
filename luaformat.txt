@@ -1,5 +1,0 @@
-column_limit: 10000
-chop_down_table: true
-chop_down_kv_table: true
-column_table_limit: 0
-table_separator_style: "always_multiline"
