@@ -6,6 +6,7 @@ serotonin/scripts/*
 !serotonin/scripts/OperationOne.lua
 !serotonin/scripts/minesweeper.lua
 !serotonin/scripts/roqube.lua
+!serotonin/scripts/word_hunt.lua
 
 **/__pycache__/*
 **/auto-label/captures'
